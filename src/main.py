@@ -2,22 +2,18 @@ import subprocess
 import numpy as np
 
 #calculate volume of the voice
-def RMS(process, width = 25, sensitivity = 100):
+def show_information(volume, frequency, width = 25, sensitivity = 1000):
 
-    data = process.stdout.read(4096)
-    samples = np.frombuffer(data, dtype=np.int16)
-    samples = samples.astype(np.float32) / 32768.0
-    rms = np.sqrt(np.mean(samples ** 2))
-
+    
+    rms = np.sqrt(np.mean(volume ** 2))
     bars = int(rms * sensitivity)
     bars = min(bars, width)
 
     print(
-        f"\r{'#' * bars}{'.' * (width - bars)} \t\t\t Volume: {bars:.4f}",
+        f"\r{'#' * bars}{'.' * (width - bars)} \t\t\t Volume: {bars:.4f} Frequency: {frequency:.4f}",
         end="",
         flush=True
     )
- 
 
 def get_mic_list():
     mic_list = subprocess.Popen(
@@ -69,24 +65,39 @@ def get_voice(mic):
     return process
 
 
+
 try:
     show_mics = get_mic_list()
 
+    #show your activate microphone
     for i in show_mics:
         print(f"{i[0]}- {i[1]:<80}[{i[2]}]")
 
+    #choose your microphone
     choose_mic = int(input("choose your mic: "))
     choose_mic = show_mics[choose_mic - 1][1]
-    # choose_sensitivity = int(input("Choose how sensitive you want the microphone to be: "))
-    process_mic = get_voice(choose_mic)
+ 
+    #get info from your voice
+    process = get_voice(choose_mic)
 
     print("\n\n Ctrl + C for quit \n\n")
 
     while True:
-        RMS(process_mic)
+        
+        data = process.stdout.read(4096)
+
+        samples = np.frombuffer(data, dtype=np.int16)
+        samples = samples.astype(np.float32) / 32768.0
+
+        magnitude = np.abs(np.fft.rfft(samples))
+        peak_index = np.argmax(magnitude)
+        frequencies = np.fft.rfftfreq(len(samples), d = 1/44100)
+        dominant_frequency = frequencies[peak_index]
+
+        show_information(samples, dominant_frequency)
 
 except KeyboardInterrupt:
-    process_mic.terminate()
+    process.terminate()
 
 finally:
-    process_mic.terminate()
+    process.terminate()

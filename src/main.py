@@ -17,30 +17,75 @@ def RMS(process, width = 30):
         end="",
         flush=True
     )
+ 
 
-    
+def get_mic_list():
+    mic_list = subprocess.Popen(
+        [
+            "pactl",
+            "list",
+            "short",
+            "sources"
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL
+    )
+
+    mic_list = mic_list.stdout.read()
+    lines = mic_list.splitlines()
+    parts = []
+    part = []
+    counter = 1
+    for i in lines:
+        parts.append(i.split())
+
+
+    for i in range(len(parts)):
+        if parts[i][1].startswith("alsa_input"):
+            part.append([counter, parts[i][1], parts[i][-1]])
+            counter += 1
+
+    return part
+
 
 #get voice from mic whitout saving
-process = subprocess.Popen(
-    [
-        "ffmpeg",
-        "-f", "pulse",
-        "-i", "alsa_input.usb-Jin-Audio_GM306_AP5980_20220308-00.analog-stereo",
+def get_voice(mic):
+    process = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-f", "pulse",
+            "-i", mic,
 
-        "-f", "s16le",
-        "-ac", "1",
-        "-ar", "44100",
-        "-"
-    ],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.DEVNULL
-)
+            "-f", "s16le",
+            "-ac", "1",
+            "-ar", "44100",
+            "-"
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL
+    )
+
+    return process
 
 
 try:
+    show_mics = get_mic_list()
+
+    for i in show_mics:
+        print(f"{i[0]}- {i[1]:<80}[{i[2]}]")
+
+    choose_mic = int(input("choose your mic: "))
+    choose_mic = show_mics[choose_mic - 1][1]
+    process_mic = get_voice(choose_mic)
+
+    print("\n\n Ctrl + C for quit \n\n")
+
     while True:
-        RMS(process)
-        
+        RMS(process_mic)
 
 except KeyboardInterrupt:
-    process.terminate()
+    process_mic.terminate()
+
+finally:
+    process_mic.terminate()

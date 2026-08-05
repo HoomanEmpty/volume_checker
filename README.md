@@ -1,3 +1,10 @@
+# Linux dependencies
+for ubuntu:
+
+    sudo apt install pulseaudio-utils
+
+    sudo apt install ffmpeg
+
 # How to run 
 this application currently only works on Linux.
 

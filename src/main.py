@@ -9,11 +9,11 @@ def RMS(process, width = 30):
     samples = samples.astype(np.float32) / 32768.0
     rms = np.sqrt(np.mean(samples ** 2))
 
-    bars = int(rms * 1000)
+    bars = int(rms * 100)
     bars = min(bars, width)
 
     print(
-        f"\r{'#' * bars}{'.' * (width - bars)} \t\t\t Volume: {rms * 1000:.4f}",
+        f"\r{'#' * bars}{'.' * (width - bars)} \t\t\t Volume: {bars:.4f}",
         end="",
         flush=True
     )

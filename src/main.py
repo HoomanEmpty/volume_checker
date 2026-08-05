@@ -2,14 +2,14 @@ import subprocess
 import numpy as np
 
 #calculate volume of the voice
-def RMS(process, width = 30):
+def RMS(process, width = 25, sensitivity = 100):
 
     data = process.stdout.read(4096)
     samples = np.frombuffer(data, dtype=np.int16)
     samples = samples.astype(np.float32) / 32768.0
     rms = np.sqrt(np.mean(samples ** 2))
 
-    bars = int(rms * 100)
+    bars = int(rms * sensitivity)
     bars = min(bars, width)
 
     print(
@@ -77,6 +77,7 @@ try:
 
     choose_mic = int(input("choose your mic: "))
     choose_mic = show_mics[choose_mic - 1][1]
+    # choose_sensitivity = int(input("Choose how sensitive you want the microphone to be: "))
     process_mic = get_voice(choose_mic)
 
     print("\n\n Ctrl + C for quit \n\n")

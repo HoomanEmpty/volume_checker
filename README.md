@@ -8,7 +8,9 @@ for ubuntu:
 # How to run 
 this application currently only works on Linux.
 
-first install requirements.txt (pip install -r requirements.txt) .
+first install requirements.txt: 
+
+    pip install -r requirements.txt
 
 run main.py in src folder.
 

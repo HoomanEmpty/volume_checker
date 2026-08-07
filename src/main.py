@@ -1,19 +1,54 @@
 import subprocess
 import numpy as np
+import time
+
+rms_list = np.array([])
+start_time = None
+silence_threshold = 0.001
 
 #calculate volume of the voice
 def show_information(volume, frequency, width = 25, sensitivity = 1000):
+    global start_time
+    global silence_threshold
 
+    rms, rms_list, rms_mean = rms_calculate(volume)
+
+    std = std_calaulate(rms_list, rms_mean)
     
-    rms = np.sqrt(np.mean(volume ** 2))
     bars = int(rms * sensitivity)
     bars = min(bars, width)
 
+    if rms <= silence_threshold:
+        start_time = time.monotonic()
+        is_talking()
+    
+
+
     print(
-        f"\r{'#' * bars}{'.' * (width - bars)} \t\t\t Volume: {bars:.4f} Frequency: {frequency:.4f}",
+        f"\r{'#' * bars}{'.' * (width - bars)} \t\t\t Volume: {bars:.4f} Frequency: {frequency:.4f}Hz Std: {std:.4f} Action: {is_talking}",
         end="",
         flush=True
     )
+
+def rms_calculate(volume):
+    global rms_list
+
+    rms = np.sqrt(np.mean(volume ** 2))
+    rms_list = np.append(rms_list, [rms])
+
+    if len(rms_list) > 100:
+        rms_list = np.delete(rms_list, 0)
+    rms_mean = np.mean(rms_list)
+
+    return rms, rms_list, rms_mean
+
+def std_calaulate(rms_list, rms_mean):
+    std = np.sqrt(np.mean((rms_list - rms_mean) ** 2))
+
+    return std
+
+def is_talking():
+    ...
 
 def get_mic_list():
     mic_list = subprocess.Popen(
@@ -94,6 +129,7 @@ try:
         frequencies = np.fft.rfftfreq(len(samples), d = 1/44100)
         dominant_frequency = frequencies[peak_index]
 
+        
         show_information(samples, dominant_frequency)
 
 except KeyboardInterrupt:

@@ -67,16 +67,10 @@ def show_information(samples, display_samples=None, width=25, sensitivity=1000):
     rms, rms_list, rms_mean = rms_calculate(samples)
 
     # STD
-    std = np.sqrt(np.mean((rms_list - rms_mean) ** 2))
+    std = std_calculate(rms_mean)
 
     # Frequency
-    magnitude = np.abs(np.fft.rfft(samples))
-
-    peak_index = np.argmax(magnitude)
-
-    frequencies = np.fft.rfftfreq(len(samples), d=1 / 44100)
-
-    dominant_frequency = frequencies[peak_index]
+    dominant_frequency = frequency_calculate(samples)
 
     # Display-only RMS (post-AGC), used solely for the volume bar
     display_rms = np.sqrt(np.mean(display_samples ** 2))
@@ -89,11 +83,11 @@ def show_information(samples, display_samples=None, width=25, sensitivity=1000):
 
         noise_detection(rms)
 
-        std_calculate(std)
+        std_detection(std)
 
         #when the signal not strong
         if rms <= noise_floor * 3:
-            frequency_calculate(dominant_frequency)
+            frequency_detection(dominant_frequency)
 
         elapsed = time.monotonic() - calibration_start
 
@@ -159,7 +153,7 @@ def rms_calculate(volume):
 # STD baseline
 # =========================
 
-def std_calculate(std):
+def std_detection(std):
     global std_floor, std_threshold
 
     std_floor = (std_alpha * std + (1 - std_alpha) * std_floor)
@@ -171,7 +165,7 @@ def std_calculate(std):
 # Frequency baseline
 # =========================
 
-def frequency_calculate(dominant_frequency):
+def frequency_detection(dominant_frequency):
     global frequency_floor, frequency_std, min_frequency, max_frequency, frequency_initialized
 
     #first value
@@ -226,6 +220,21 @@ def auto_gain_control(samples, current_rms):
 
     return amplified_samples
 
+def frequency_calculate(samples):
+    magnitude = np.abs(np.fft.rfft(samples))
+   
+    peak_index = np.argmax(magnitude)
+   
+    frequencies = np.fft.rfftfreq(len(samples), d=1 / 44100)
+    
+    dominant_frequency = frequencies[peak_index]
+
+    return dominant_frequency
+
+def std_calculate(rms_mean):
+    std = np.sqrt(np.mean((rms_list - rms_mean) ** 2))
+
+    return std
 # =========================
 # Update noise baseline
 # =========================

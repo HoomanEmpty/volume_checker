@@ -128,9 +128,9 @@ def show_information(samples, display_samples=None, width=25, sensitivity=1000):
         f"{'#' * bars}"
         f"{'.' * (width - bars)}"
         f"\t\t Volume: {display_rms:.4f}"
-        f" Frequency: {dominant_frequency:.2f}Hz"
+        f" Frequency: {dominant_frequency:8.2f}Hz"
         f" Std: {std:.4f}"
-        f" Action: {action}",
+        f" Action: {action:<11}",
         end="",
         flush=True
     )

@@ -472,6 +472,9 @@ finally:
     process.stdout.close()
 
 if recording:
+    import wave
+    from pathlib import Path
+
     recorded_voice = np.concatenate(record_chunk)
     semitones = float(input("\nChoose the pitch(-12, 12)(0): "))
     pitch_ratio = 2 ** (semitones / 12)
@@ -535,10 +538,11 @@ if recording:
     pitched_voice = np.clip(resampled, -1.0, 1.0)
     pitched_voice_int16 = (pitched_voice * 32767).astype(np.int16)
 
-    import wave
+    
 
     with wave.open("output.wav", "w") as wav_file:
         wav_file.setnchannels(1)
         wav_file.setsampwidth(2)
         wav_file.setframerate(44100)
         wav_file.writeframes(pitched_voice_int16.tobytes())
+    print("Your voice save in: ", Path.cwd().joinpath("output.wav"))

@@ -426,9 +426,10 @@ try:
         recording = True
 
     noise_canceling = False
-    choose_noise_canceling = input("Do you want to record your voice with noise canceling (y/N): ").lower()
-    if choose_noise_canceling == "y":
-        noise_canceling = True
+    if choose_recording == "n" or choose_recording:
+        choose_noise_canceling = input("Do you want to record your voice with noise canceling (y/N): ").lower()
+        if choose_noise_canceling == "y":
+            noise_canceling = True
 
     # Get voice
 
@@ -476,7 +477,14 @@ if recording:
     from pathlib import Path
 
     recorded_voice = np.concatenate(record_chunk)
-    semitones = float(input("\nChoose the pitch(-12, 12)(0): "))
+    semitones = input("\nChoose the pitch(-12, 12)(0): ")
+
+    if not semitones:
+        semitones = 0
+
+    else:
+        semitones = float(semitones)
+
     pitch_ratio = 2 ** (semitones / 12)
 
     frame_size = 2048

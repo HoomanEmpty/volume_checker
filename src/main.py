@@ -2,7 +2,6 @@ import subprocess
 import numpy as np
 import time
 
-
 # =========================
 # Global variables
 # =========================
@@ -121,10 +120,10 @@ def show_information(samples, display_samples=None, width=25, sensitivity=1000):
         f"\r"
         f"{'#' * bars}"
         f"{'.' * (width - bars)}"
-        f"\t\t Volume: {display_rms:.4f}"
-        f" Frequency: {dominant_frequency:8.2f}Hz"
-        f" Std: {std:.4f}"
-        f" Action: {action:<11}",
+        f" Volume: {display_rms:.4f}"
+        f", Frequency: {dominant_frequency:8.2f}Hz"
+        f", Std: {std:.4f}"
+        f", Action: {action:<11}",
         end="",
         flush=True
     )
@@ -263,20 +262,15 @@ def is_talking(rms, silence_threshold, std, frequency):
 
         # TALKING -> WAITING
         if state == "TALKING":
-
             state = "WAITING_FOR_SILENCE"
-
             start_time = time.monotonic()
 
         # WAITING -> SILENCE
         elif state == "WAITING_FOR_SILENCE":
-
             elapsed = (time.monotonic() - start_time)
 
             if elapsed >= 1.0:
-
                 state = "SILENCE"
-
                 start_time = None
 
         return state
@@ -300,11 +294,8 @@ def is_talking(rms, silence_threshold, std, frequency):
     # =========================
 
     if score >= talking_score_threshold:
-
         if state == "WAITING_FOR_SILENCE":
-
             start_time = None
-
         state = "TALKING"
 
     return state
@@ -339,7 +330,6 @@ def silence_detection(noise_floor):
 # =========================
 
 def get_mic_list():
-
     mic_list = subprocess.Popen(
         [
             "pactl",
@@ -363,13 +353,11 @@ def get_mic_list():
     counter = 1
 
     for i in lines:
-
         parts.append(
             i.split()
         )
 
     for i in range(len(parts)):
-
         if parts[i][1].startswith(
             "alsa_input"
         ):
@@ -392,7 +380,6 @@ def get_mic_list():
 # =========================
 
 def get_voice(mic):
-
     process = subprocess.Popen(
         [
             "ffmpeg",
@@ -426,25 +413,33 @@ try:
     # Show microphones
 
     for i in show_mics:
-
         print(f"{i[0]}- {i[1]:<80}[{i[2]}]")
 
     # Choose microphone
 
     choose_mic = int(input("choose your mic: "))
-
     choose_mic = (show_mics[choose_mic - 1][1])
+
+    recording = False
+    choose_recording = input("Do you want to change frequency your voice (y/N): ").lower()
+    if choose_recording == "y":
+        recording = True
+
+    noise_canceling = False
+    choose_noise_canceling = input("Do you want to record your voice with noise canceling (y/N): ").lower()
+    if choose_noise_canceling == "y":
+        noise_canceling = True
 
     # Get voice
 
     process = get_voice(choose_mic)
+    record_chunk = []
 
     print("\n\nCtrl + C for quit\n\n")
 
     # Main loop
 
     while True:
-
         data = (process.stdout.read(4096))
 
         if not data:
@@ -460,15 +455,90 @@ try:
             display_samples = auto_gain_control(samples, temp_rms)
         else:
             display_samples = samples
+        if recording:
+            if noise_canceling:
+                if state in ("TALKING", "WAITING_FOR_SILENCE"):
+                    record_chunk.append(samples)
+            else:
+                record_chunk.append(samples)
 
         show_information(samples, display_samples)
 
-
 except KeyboardInterrupt:
-
     process.terminate()
 
 finally:
-
     process.terminate()
     process.stdout.close()
+
+if recording:
+    recorded_voice = np.concatenate(record_chunk)
+    semitones = float(input("\nChoose the pitch(-12, 12)(0): "))
+    pitch_ratio = 2 ** (semitones / 12)
+
+    frame_size = 2048
+    hop_in = frame_size // 4
+    hop_out = int(round(hop_in * pitch_ratio))
+    window = np.hanning(frame_size)
+
+    num_frames = (len(recorded_voice) - frame_size) // hop_in + 1
+    output_length = (num_frames - 1) * hop_out + frame_size
+    output = np.zeros(output_length)
+
+    num_bins = frame_size // 2 + 1
+    prev_phase = np.zeros(num_bins)
+    output_phase = np.zeros(num_bins)
+
+    bin_freqs = np.fft.rfftfreq(frame_size, d=1/44100)
+    expected_phase_advance = bin_freqs * 2 * np.pi * (hop_in / 44100)
+
+    for i in range(num_frames):
+        start = i * hop_in
+        frame = recorded_voice[start: start + frame_size]
+        windowed_frame = frame * window
+
+        spectrum = np.fft.rfft(windowed_frame)
+        magnitude = np.abs(spectrum)
+        phase = np.angle(spectrum)
+
+        phase_diff = phase - prev_phase - expected_phase_advance
+        phase_diff = phase_diff - 2 * np.pi * np.round(phase_diff / (2 * np.pi))
+        true_freq = bin_freqs + phase_diff / (2 * np.pi * (hop_in / 44100))
+
+        prev_phase = phase
+
+        output_phase = output_phase + true_freq * 2 * np.pi * (hop_out / 44100)
+
+        new_spectrum = magnitude * np.exp(1j * output_phase)
+
+        new_frame = np.fft.irfft(new_spectrum, n=frame_size)
+        new_frame = new_frame * window
+
+        out_start = i * hop_out
+        output[out_start : out_start + frame_size] += new_frame
+
+    window_sum = np.zeros(output_length)
+    for i in range(num_frames):
+        out_start = i * hop_out
+        window_sum[out_start : out_start + frame_size] += window ** 2
+
+    window_sum[window_sum < 1e-6] = 1e-6
+    output = output / window_sum
+
+    # Resample back to the original duration — this is the step that
+    # actually converts the time-stretched (pitch-preserved) signal into
+    # a pitch-shifted one at the original playback duration.
+    original_length = len(recorded_voice)
+    source_idx = np.linspace(0, len(output) - 1, original_length)
+    resampled = np.interp(source_idx, np.arange(len(output)), output)
+
+    pitched_voice = np.clip(resampled, -1.0, 1.0)
+    pitched_voice_int16 = (pitched_voice * 32767).astype(np.int16)
+
+    import wave
+
+    with wave.open("output.wav", "w") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(44100)
+        wav_file.writeframes(pitched_voice_int16.tobytes())

@@ -417,7 +417,13 @@ try:
 
     # Choose microphone
 
-    choose_mic = int(input("choose your mic: "))
+    choose_mic = input("choose your mic: ")
+    if not choose_mic:
+        choose_mic = 1
+
+    else:
+        choose_mic = int(choose_mic)
+        
     choose_mic = (show_mics[choose_mic - 1][1])
 
     recording = False
